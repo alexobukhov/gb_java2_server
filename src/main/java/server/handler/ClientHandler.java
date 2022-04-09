@@ -7,6 +7,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.List;
 
 public class ClientHandler {
     private static final String AUTH_CMD_PREFIX = "/auth"; // + login + password
@@ -17,6 +18,7 @@ public class ClientHandler {
     private static final String PRIVATE_MSG_CMD_PREFIX = "/w"; // + msg
     private static final String STOP_SERVER_CMD_PREFIX = "/stop";
     private static final String END_CLIENT_CMD_PREFIX = "/end";
+    private static final String GET_CLIENTS_CMD_PREFIX = "/gcMsg";
 
     private MyServer myServer;
     private Socket clientSocket;
@@ -40,6 +42,12 @@ public class ClientHandler {
                 readMessage();
             } catch (IOException e) {
                 e.printStackTrace();
+                myServer.unSubscribe(this);
+                try {
+                    myServer.broadcastClientDisconnected(this);
+                } catch (IOException exception) {
+                    exception.printStackTrace();
+                }
             }
         }).start();
     }
@@ -79,13 +87,18 @@ public class ClientHandler {
             }
 
             out.writeUTF(AUTHOK_CMD_PREFIX + " " + username);
-            myServer.subscribe(this);
-            System.out.println("Пользователь " + username + " подключился к чату");
+            connectUser(username);
             return true;
         } else {
             out.writeUTF(AUTHERR_CMD_PREFIX + " Логин или пароль не соответствуют действительности");
             return false;
         }
+    }
+
+    private void connectUser(String username) throws IOException {
+        myServer.subscribe(this);
+        System.out.println("Пользователь " + username + " подключился к чату");
+        myServer.broadcastClients(this);
     }
 
     private void readMessage() throws IOException {
@@ -109,8 +122,18 @@ public class ClientHandler {
         out.writeUTF(String.format("%s %s %s", CLIENT_MSG_CMD_PREFIX, sender, message));
     }
 
+    public void sendServerMessage(String message) throws IOException {
+        out.writeUTF(String.format("%s %s", SERVER_MSG_CMD_PREFIX, message));
+    }
+
     public String getUsername() {
         return username;
+    }
+
+    public void sendClientsList(List<ClientHandler> clients) throws IOException {
+        String message = String.format("%s %s", GET_CLIENTS_CMD_PREFIX, clients.toString());
+        out.writeUTF(message);
+        System.out.println(message);
     }
 
     public String getRecipientName(String message) {
