@@ -88,4 +88,22 @@ public class MyServer {
             client.sendMessage(sender.getUsername(), message);
         }
     }
+
+    public synchronized void broadcastClients(ClientHandler clientHandler) throws IOException {
+        for (ClientHandler client : clients) {
+            client.sendServerMessage(String.format("%s присоединился к чату", clientHandler.getUsername()));
+            client.sendClientsList(clients);
+        }
+    }
+
+    public synchronized void broadcastClientDisconnected(ClientHandler clientHandler) throws IOException {
+        for (ClientHandler client : clients) {
+            if (client == clientHandler) {
+                continue;
+            }
+
+            client.sendServerMessage(String.format("%s отключился", clientHandler.getUsername()));
+            client.sendClientsList(clients);
+        }
+    }
 }
